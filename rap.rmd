@@ -1,0 +1,103 @@
+---
+title: "MBO"
+output:
+  pdf_document: default
+  html_document: default
+header-includes: \usepackage{booktabs}
+---
+
+```{r global_options, R.options=knitr::opts_chunk$set(warning=FALSE, message=FALSE)}
+
+```
+
+```{r setup, include=FALSE}
+library(mlrMBO)
+library(ggplot2)
+library(randomForest)
+
+set.seed(123)
+
+fun = function(x) {
+  j = x$j
+  method = x$method
+  perf = ifelse(method == "a", j + 2*sin(j) - sqrt(j), j - cos(j) - 1.5*sqrt(j))
+  return(perf)
+}
+
+objfun2 = makeSingleObjectiveFunction(
+  name = "mixed_example",
+  fn = fun,
+  par.set = makeParamSet(
+    makeNumericParam("j", lower = 0,upper = 4 * pi),
+    makeDiscreteParam("method", values = c("a", "b"))
+  ),
+  has.simple.signature = FALSE,
+  minimize = TRUE
+)
+```
+
+##Funkcja celu
+
+```{r pressure2, echo=FALSE,warning=FALSE, results='asis',out.width='60%',out.height='60%', fig.align = 'center'}
+
+autoplot(objfun2)
+
+```
+
+##Optymalizacja
+
+```{r op, include=FALSE}
+surr.rf = makeLearner("regr.randomForest", predict.type = "se")
+
+control2 = makeMBOControl()
+control2 = setMBOControlInfill(
+  control = control2,
+  crit = makeMBOInfillCritCB(cb.lambda = 5),
+  opt.focussearch.points = 500
+)
+
+control2 = setMBOControlTermination(
+  control = control2,
+  iters = 10
+)
+
+design2 = generateDesign(n = 8, par.set = getParamSet(objfun2))
+
+```
+
+```{r op2}
+mlr::configureMlr(show.info = FALSE, show.learner.output = FALSE, 
+                  on.learner.warning = "quiet")
+run2 = mbo(objfun2, design = design2, learner = surr.rf, control = control2, 
+           show.info = TRUE)
+
+## [mbo] 0: j=8.24; method=b : y = 4.31 : 0.0 secs : initdesign
+## [mbo] 0: j=0.515; method=a : y = 0.783 : 0.0 secs : initdesign
+## [mbo] 0: j=4.54; method=a : y = 0.438 : 0.0 secs : initdesign
+## [mbo] 0: j=10.4; method=a : y = 5.51 : 0.0 secs : initdesign
+## [mbo] 0: j=2.6; method=b : y = 1.04 : 0.0 secs : initdesign
+## [mbo] 0: j=5.57; method=b : y = 1.27 : 0.0 secs : initdesign
+## [mbo] 0: j=11.4; method=b : y = 5.94 : 0.0 secs : initdesign
+## [mbo] 0: j=7.8; method=a : y = 7 : 0.0 secs : initdesign
+## [mbo] 1: j=6.31; method=a : y = 3.86 : 0.0 secs : infill_cb
+## [mbo] 2: j=5.66; method=a : y = 2.11 : 0.0 secs : infill_cb
+## [mbo] 3: j=5.96; method=a : y = 2.88 : 0.0 secs : infill_cb
+## [mbo] 4: j=6.88; method=b : y = 2.12 : 0.0 secs : infill_cb
+## [mbo] 5: j=7.39; method=b : y = 2.87 : 0.0 secs : infill_cb
+## [mbo] 6: j=7.65; method=b : y = 3.3 : 0.0 secs : infill_cb
+## [mbo] 7: j=7.7; method=a : y = 6.91 : 0.0 secs : infill_cb
+## [mbo] 8: j=4.13; method=a : y = 0.428 : 0.0 secs : infill_cb
+## [mbo] 9: j=7.38; method=a : y = 6.45 : 0.0 secs : infill_cb
+```
+
+##Wizualizacja
+
+```{r pressure3, echo=FALSE,warning=FALSE, results='asis',out.width='60%',out.height='60%', fig.align = 'center'}
+
+ex.run2 = exampleRun(objfun2, design = design2, learner = surr.rf, control = control2, show.info = FALSE)
+plotExampleRun(ex.run2, iters = c(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L), pause = FALSE)
+
+```
+
+
+
